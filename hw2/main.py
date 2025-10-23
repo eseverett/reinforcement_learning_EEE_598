@@ -1,48 +1,102 @@
-from lib import data, evaluate, grid, model, train, generator
 import torch
-from torch.utils.data import DataLoader
-from torch.optim import Adam
-from torch.nn import MSELoss
+import matplotlib.pyplot as plt
+import numpy as np
+import random
+
+from lib import GridWorld, ReplayBuffer, DQNModel, EvaluateResults, Agent
 
 def main() -> None:
+    print('===== Reinforcement Learning: DQN on GridWorld =====')
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f'Using device: {device}')
     
-    epsilon = 0.5
-    learning_rate = 1e-4
-    epochs = 10
-    batch_size = 128
+    seed = 42
     
-    env = grid.GridWorld()
-    data_gen = generator.DataGenerator(env, epsilon=epsilon)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    
+    print('Using seed:', seed)
 
-    S, A, R, S_next, Done = data_gen.generate_data(steps=50000, seed=42)
+    print('===== Initializing GridWorld Environment =====')
+    env = GridWorld.GridWorld(penalty=-1.0, start_state=(0, 0))
 
+    print('===== Initializing Replay Buffer =====')
+    replay_buffer_capacity = 10000
+    replay_buffer_minibatch_size = 64
+    print(f'Replay Buffer Capacity: {replay_buffer_capacity}, Minibatch Size: {replay_buffer_minibatch_size}')
+    replay_buffer = ReplayBuffer.ReplayBuffer(
+        capacity=replay_buffer_capacity,
+        sample_size=replay_buffer_minibatch_size,
+        device=device
+    )
+
+    print('==== Initializing Agent and Model =====')
     
-    dataset = data.CustomDataset(S, A, R, S_next, Done)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    rl_cfg = {
+        'learning_rate': 1e-4,
+        'discount_factor': 0.95,
+        'exploration_rate': 0.9,
+    }
     
-    device = "cuda" if torch.cuda.is_available() else "cpu"
     
-    dqn_model = model.DQN(input_dim=2, output_dim=4)
-    optimizer = Adam(dqn_model.parameters(), lr=learning_rate)
-    loss_fn = MSELoss()
-    gamma = 0.95
-    
-    training_loop = train.TrainingLoop(dqn_model, dataloader, optimizer, loss_fn, device, gamma)
-    
-    running_loss = []
-    for epoch in range(epochs):
-        loss = training_loop.train_epoch()
-        running_loss.append(loss)
-        print(f"Epoch {epoch+1}/{epochs}, Loss: {loss:.4f}")
+
+    model = DQNModel.DQN_Model(input_dim=2, output_dim=4, hidden_layers=[64, 64])
+
+    print(f'Learning Rate: {rl_cfg["learning_rate"]}, Discount Factor: {rl_cfg["discount_factor"]}, Exploration Rate: {rl_cfg["exploration_rate"]}')
+
+    training_cfg = {
+        'num_episodes': 500,
+        'max_steps_per_episode': 50,
+        'exploration_decay_rate': 0.995,
+        'min_exploration_rate': 0.01,
+        'loss_function': torch.nn.MSELoss(),
+        'optimizer': torch.optim.Adam,
+        'model': model,
+        'buffer': replay_buffer,
+        'environment': env,
+        'device': device,
+        'target_update_steps': 100,
+        'warmup_steps': 100,
+        'gradient_steps_per_env_step': 1,
+    }
+
+    agent = Agent.DQN_Agent(rl_cfg, training_cfg)
+
+    print('===== Starting Training =====')
+    for episode in range(agent.num_episodes):
+        agent.optimize_model()
+        ep_idx = episode + 1
+        ep_return = agent.get_running_return()[-1]
+        ep_loss = agent.get_running_loss()[-1]
         
-        
-    evaluator = evaluate.Evaluator(dqn_model, device, running_loss)
-    evaluator.plot_running_loss()
+        if ep_idx % 50 == 0 or ep_idx == 1:
+            print(f'Episode {ep_idx}/{agent.num_episodes} | Return: {ep_return:.3f} | Loss: {ep_loss:.3f} | Exploration Rate: {agent.exploration_rate:.3f}')
+
+    print('===== Starting Evaluation =====')
+    evaluator = EvaluateResults.EvaluateResults()
+    evaluator.plot_loss_per_episode(agent.get_running_loss(), title='Training')
+    plt.show()
+    evaluator.plot_return_per_episode(agent.get_running_return(), title='Training')
+    plt.show()
+
+    traces, ep_returns, ep_losses = evaluator.evaluate_policy_greedy(model, env, device, training_cfg['loss_function'], rl_cfg['discount_factor'], episodes=250, max_steps=50)
     
-    metrics1 = evaluator.evaluate_policy(env, n_episodes=30)
-    print(metrics1)
-    metrics2 = evaluator.run_one_episode_with_trace(env)
-    print(metrics2)
+    evaluator.plot_loss_per_episode(ep_losses, title='Evaluation')
+    plt.show()
+    evaluator.plot_return_per_episode(ep_returns, title='Evaluation')
+    plt.show()
+
+
+    annotated = evaluator.render_trace_grid(env, traces[0])
+    evaluator.print_trace_grid(annotated)
+    print(" ")
+    evaluator.print_policy_arrows(model, env, device)
+
+    print('==== Finished =====')
 
 
 if __name__ == "__main__":
