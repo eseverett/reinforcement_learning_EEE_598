@@ -12,7 +12,10 @@ class EvaluateResults:
         """
         Plots the loss per episode.
         Args:
-            losses (list): A list of loss values per episode.
+            losses (list): Loss values per episode.
+            title (str): Title for the plot.
+            color (str): Color for the plot lines.
+            label (str): Label for the plot legend.
         """
         window = 10
         weights = np.ones(window) / window
@@ -30,6 +33,9 @@ class EvaluateResults:
         Plots the episodic return.
         Args:
             returns (list): Cumulative reward per episode.
+            title (str): Title for the plot.
+            color (str): Color for the plot lines.
+            label (str): Label for the plot legend.
         """
         window = 10
         weights = np.ones(window) / window
@@ -55,11 +61,18 @@ class EvaluateResults:
         """
         Runs greedy evaluation (epsilon = 0) for a number of episodes.
         Uses the same loss function as training for TD error evaluation.
+        Args:
+            model (torch.nn.Module): The trained DQN model.
+            env: The GridWorld environment.
+            device (torch.device): The device to run computations on.
+            loss_fn (torch.nn.Module): The loss function used during training.
+            discount_factor (float): Discount factor for future rewards.
+            episodes (int): Number of evaluation episodes to run.
+            max_steps (int): Maximum steps per episode.
         Returns:
-            avg_return  (float): average return over all episodes
-            traces      (list): list of state traces
-            ep_returns  (list): per-episode cumulative returns
-            ep_losses   (list): per-episode mean loss values
+            traces (List[List[Tuple[int, int]]]): List of state traces for each episode
+            ep_returns (list): List of returns per episode.
+            ep_losses (list): List of average TD losses per episode.
         """
         model.eval()
         traces = []
@@ -116,8 +129,12 @@ class EvaluateResults:
         trace: List[Tuple[int, int]]
     ) -> List[List[str]]:
         """
-        Returns a 2D list of strings showing one greedy episode trace
-        annotated by step index inside the 3x4 grid.
+        Renders the given trace on the GridWorld environment as a list of strings.
+        Args:
+            env: The GridWorld environment.
+            trace (List[Tuple[int, int]]): The list of states in the trace.
+        Returns:
+            List[List[str]]: A 2D list of strings representing the grid with the trace annotated.
         """
         grid = getattr(env, "grid", None)
         if grid is None:
@@ -148,6 +165,8 @@ class EvaluateResults:
     def print_trace_grid(self, annotated_grid: List[List[str]]) -> None:
         """
         Prints the annotated grid returned by render_trace_grid.
+        Args:
+            annotated_grid (List[List[str]]): The annotated grid to print.
         """
         for row in annotated_grid:
             print(" | ".join(row))
@@ -158,6 +177,10 @@ class EvaluateResults:
         Prints a grid showing the greedy action (argmax_a Q(s,a)) at every
         non-obstacle, non-terminal cell. Obstacles = '##', terminals = 'T+'/'T-'.
         Actions: 0=^, 1=>, 2=v, 3=<.
+        Args:
+            model (torch.nn.Module): The trained DQN model.
+            env: The GridWorld environment.
+            device (torch.device): The device to run computations on.
         """
         model.eval()
         grid = getattr(env, "grid", None)

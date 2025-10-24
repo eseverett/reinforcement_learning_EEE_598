@@ -9,6 +9,8 @@ class ReplayBuffer:
         Initializes the replay buffer with a given capacity.
         Args:
             capacity (int): Maximum number of experiences to store in the buffer.
+            sample_size (int): Number of experiences to sample during training.
+            device (torch.device): The device to store the tensors on.
         """
         
         self.capacity = capacity

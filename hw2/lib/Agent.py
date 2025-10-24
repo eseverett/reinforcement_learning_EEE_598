@@ -5,6 +5,15 @@ from typing import Tuple
 class DQN_Agent:
     
     def __init__(self, rl_cfg: dict, training_cfg: dict) -> None:
+        """
+        Initializes the DQN agent with given RL and training configurations.
+        Args:
+            rl_cfg (dict): Configuration parameters for reinforcement learning.
+            training_cfg (dict): Configuration parameters for training.
+            
+        """
+        
+        
         self.learning_rate = rl_cfg['learning_rate']
         self.discount_factor = rl_cfg['discount_factor']
         self.exploration_rate = rl_cfg['exploration_rate']
@@ -34,12 +43,27 @@ class DQN_Agent:
         self._global_step = 0
 
     def _normalize_state(self, state_rc: Tuple[int, int]) -> torch.Tensor:
+        """
+        Normalizes the state (row, col) to a tensor with values between 0 and 1.
+        Args:
+            state_rc (Tuple[int, int]): The (row, col) position of the agent in the grid.
+        Returns:
+            torch.Tensor: Normalized state tensor.
+        """
         r, c = state_rc
         rows = max(1, getattr(self.environment, "_rows", 1) - 1)
         cols = max(1, getattr(self.environment, "_cols", 1) - 1)
         return torch.tensor([r / rows, c / cols], dtype=torch.float32, device=self.device)
 
     def select_action(self, state: torch.Tensor) -> int:
+        """
+        Selects an action using an epsilon-greedy policy.
+        Args:
+            state (torch.Tensor): The current state tensor.
+        Returns:
+            int: The selected action.
+        """
+        
         if torch.rand(1).item() < self.exploration_rate:
             return torch.randint(0, 4, (1,)).item()
         with torch.no_grad():
@@ -47,13 +71,25 @@ class DQN_Agent:
             return torch.argmax(q_values).item()
             
     def update_exploration_rate(self) -> None:
+        """
+        Decays the exploration rate after each episode. 
+        """
+        
         self.exploration_rate = max(self.exploration_rate * self.exploration_decay_rate, self.min_exploration_rate)
 
     def _sync_target_network(self) -> None:
+        """
+        Synchronizes the target network with the current Q-network.
+        """
+        
         self.target_model.load_state_dict(self.model.state_dict())
 
     def optimize_model(self) -> None:
+        """
+        Performs one episode of interaction with the environment and optimizes the model.
+        """
 
+        # Warm-up phase: populate replay buffer
         while self.replay_buffer.size < self.warmup_steps:
             s = self._normalize_state(self.environment.reset())
             done = False
@@ -66,12 +102,14 @@ class DQN_Agent:
                 if self.replay_buffer.size >= self.warmup_steps:
                     break
 
+        # Start of episode
         state_tuple = self.environment.reset()
         state = self._normalize_state(state_tuple)
         episode_return = 0.0
         episode_loss_sum = 0.0
         episode_loss_count = 0
 
+        # Main interaction loop
         for _ in range(self.max_steps_per_episode):
             action = self.select_action(state)
             next_state_tuple, reward, done = self.environment.step(action)
@@ -105,6 +143,7 @@ class DQN_Agent:
                     episode_loss_sum += loss.item()
                     episode_loss_count += 1
 
+            # Update target network periodically
             if self._global_step % self.target_update_steps == 0:
                 self._sync_target_network()
 
@@ -120,7 +159,18 @@ class DQN_Agent:
         self.update_exploration_rate()
 
     def get_running_loss(self) -> list:
+        """
+        Returns the running loss per episode.
+        Returns:
+            list: Running loss values.
+        """
         return self.running_loss
 
     def get_running_return(self) -> list:
+        """
+        Returns the running return per episode.
+        Returns:
+            list: Running return values.
+        """
+        
         return self.running_return

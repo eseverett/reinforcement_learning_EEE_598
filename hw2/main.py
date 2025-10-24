@@ -10,7 +10,7 @@ def main() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f'Using device: {device}')
     
-    seed = 42
+    seed = 25
     
     random.seed(seed)
     np.random.seed(seed)
@@ -49,7 +49,7 @@ def main() -> None:
     print(f'Learning Rate: {rl_cfg["learning_rate"]}, Discount Factor: {rl_cfg["discount_factor"]}, Exploration Rate: {rl_cfg["exploration_rate"]}')
 
     training_cfg = {
-        'num_episodes': 500,
+        'num_episodes': 2000,
         'max_steps_per_episode': 50,
         'exploration_decay_rate': 0.995,
         'min_exploration_rate': 0.01,
@@ -78,17 +78,17 @@ def main() -> None:
 
     print('===== Starting Evaluation =====')
     evaluator = EvaluateResults.EvaluateResults()
-    evaluator.plot_loss_per_episode(agent.get_running_loss(), title='Training')
-    plt.show()
-    evaluator.plot_return_per_episode(agent.get_running_return(), title='Training')
-    plt.show()
+    evaluator.plot_loss_per_episode(agent.get_running_loss(), title=f'Training_seed_{seed}')
+    plt.savefig(f'loss_plot_seed_{seed}.png')
+    evaluator.plot_return_per_episode(agent.get_running_return(), title=f'Training_seed_{seed}')
+    plt.savefig(f'return_plot_seed_{seed}.png')
 
     traces, ep_returns, ep_losses = evaluator.evaluate_policy_greedy(model, env, device, training_cfg['loss_function'], rl_cfg['discount_factor'], episodes=250, max_steps=50)
     
-    evaluator.plot_loss_per_episode(ep_losses, title='Evaluation')
-    plt.show()
-    evaluator.plot_return_per_episode(ep_returns, title='Evaluation')
-    plt.show()
+    evaluator.plot_loss_per_episode(ep_losses, title=f'Evaluation_seed_{seed}')
+    plt.savefig(f'eval_loss_plot_seed_{seed}.png')
+    evaluator.plot_return_per_episode(ep_returns, title=f'Evaluation_seed_{seed}')
+    plt.savefig(f'eval_return_plot_seed_{seed}.png')
 
 
     annotated = evaluator.render_trace_grid(env, traces[0])
