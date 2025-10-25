@@ -10,7 +10,7 @@ def main() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f'Using device: {device}')
     
-    seed = 25
+    seed = 4
     
     random.seed(seed)
     np.random.seed(seed)
@@ -80,15 +80,21 @@ def main() -> None:
     evaluator = EvaluateResults.EvaluateResults()
     evaluator.plot_loss_per_episode(agent.get_running_loss(), title=f'Training_seed_{seed}')
     plt.savefig(f'loss_plot_seed_{seed}.png')
+    plt.close()
+    
     evaluator.plot_return_per_episode(agent.get_running_return(), title=f'Training_seed_{seed}')
     plt.savefig(f'return_plot_seed_{seed}.png')
+    plt.close()
 
     traces, ep_returns, ep_losses = evaluator.evaluate_policy_greedy(model, env, device, training_cfg['loss_function'], rl_cfg['discount_factor'], episodes=250, max_steps=50)
     
     evaluator.plot_loss_per_episode(ep_losses, title=f'Evaluation_seed_{seed}')
     plt.savefig(f'eval_loss_plot_seed_{seed}.png')
+    plt.close()
+    
     evaluator.plot_return_per_episode(ep_returns, title=f'Evaluation_seed_{seed}')
     plt.savefig(f'eval_return_plot_seed_{seed}.png')
+    plt.close()
 
 
     annotated = evaluator.render_trace_grid(env, traces[0])
